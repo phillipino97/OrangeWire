@@ -1,0 +1,14 @@
+Austin:
+Manage multi-threading
+Create methods for creating and removing connections
+Set multi-threading to work with sockets so that users can connect and be connected to with multiple users
+
+Wei Jin:
+Create a class for encrypting files using block AES encryption
+Create a class for hashing
+Create a method to pull data arbitrarily from the encrypted data to re-encrypt and reinsert
+
+Phillip:
+Create classes for peer types
+Manage creating the file system for data interaction and requests
+Manage JSON data for querying and searching for that data
