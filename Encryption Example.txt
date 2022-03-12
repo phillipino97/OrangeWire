@@ -1,0 +1,6 @@
+Bits after first encryption: 0000 1111 0011 0101 1100 0100 1011 1101
+Pull random bits: 1111 1100 1011
+Combine: 111111001011
+Encrypt again (not real encryption example): 110010110011
+Pull apart: 1100 1011 0011
+Add again to first encryption: 0000 1100 0011 0101 1011 0100 0011 1101
