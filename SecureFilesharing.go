@@ -8,6 +8,8 @@ import (
 	PeerTypes "P2P-Secure-Filesharing/Libraries/peertypes"
 	Search "P2P-Secure-Filesharing/Libraries/search"
 	Upload "P2P-Secure-Filesharing/Libraries/upload"
+	Peerconnect "P2P-Filesharing/Libraries/peerconnect"
+
 )
 
 func main() {
