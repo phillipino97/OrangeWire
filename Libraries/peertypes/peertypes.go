@@ -1,15 +1,16 @@
 package peertypes
 
 import (
-	"container/list"
 	"fmt"
+	"strconv"
 )
 
-var local_file_information = list.New()
+var local_file_information []Generic
 
 type Peers interface {
 	GetData() string
 	ConvertToGeneric() Generic
+	ToString() string
 }
 
 type FNP struct {
@@ -83,6 +84,10 @@ type Generic struct {
 
 type SEP struct {
 	title string
+}
+
+func (gen Generic) ToString() string {
+	return strconv.Itoa(gen.Peer_type) + "\n" + gen.Title
 }
 
 func (fnp FNP) GetData(data_type string) string {
@@ -333,6 +338,29 @@ func (sep SEP) ConvertToGeneric() Generic {
 
 	gen.Peer_type = 7
 	gen.Title = sep.title
+	gen.Cop_addresses[0] = ""
+	gen.Cop_addresses[1] = ""
+	gen.Dp_addresses[0] = ""
+	gen.Dp_addresses[1] = ""
+	gen.File_part_hash = ""
+	gen.Fnp_addresses[0] = ""
+	gen.Fnp_addresses[1] = ""
+	gen.Hash_one = ""
+	gen.Hash_two = ""
+	gen.Key_one = ""
+	gen.Key_two = ""
+	gen.Kp_addresses[0] = ""
+	gen.Kp_addresses[1] = ""
+	gen.Mp_address = ""
+	gen.Mp_addresses[0] = ""
+	gen.Mp_addresses[1] = ""
+	gen.Next_pp_addresses[0] = ""
+	gen.Next_pp_addresses[1] = ""
+	gen.Pp_one_addresses[0] = ""
+	gen.Pp_one_addresses[1] = ""
+	gen.Same_pp_address = ""
+	gen.Sp_addresses[0] = ""
+	gen.Sp_addresses[1] = ""
 
 	return gen
 
@@ -368,6 +396,21 @@ func ConvertFromGeneric(peer Generic) interface{} {
 
 	return nil
 
+}
+
+func CheckAllStored(hash_two string) interface{} {
+
+	for _, data := range local_file_information {
+
+		if data.Hash_two == hash_two {
+
+			return ConvertFromGeneric(data)
+
+		}
+
+	}
+
+	return nil
 }
 
 func CreateFileNamePeer(title string, hash_one string, hash_two string, dp_addresses [2]string, fnp_addresses [2]string) FNP {
