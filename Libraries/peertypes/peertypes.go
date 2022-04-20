@@ -5,7 +5,9 @@ import (
 	"strconv"
 )
 
-var local_file_information []Generic
+var local_file_information []SP
+var local_proxy_information []PP
+var local_middle_information []MP
 
 type Peers interface {
 	GetData() string
@@ -60,6 +62,7 @@ type MP struct {
 type SP struct {
 	hash_two       string
 	file_part_hash string
+	filename       string
 }
 
 type Generic struct {
@@ -80,6 +83,7 @@ type Generic struct {
 	Mp_addresses      [2]string
 	Sp_addresses      [2]string
 	Mp_address        string
+	Filename          string
 }
 
 type SEP struct {
@@ -304,6 +308,8 @@ func (sp SP) GetData(data_type string) string {
 		return sp.hash_two
 	} else if data_type == "file_part" {
 		return sp.file_part_hash
+	} else if data_type == "filename" {
+		return sp.filename
 	}
 
 	return ""
@@ -317,6 +323,7 @@ func (sp SP) ConvertToGeneric() Generic {
 	gen.Peer_type = 6
 	gen.Hash_two = sp.hash_two
 	gen.File_part_hash = sp.file_part_hash
+	gen.Filename = sp.filename
 
 	return gen
 
@@ -361,6 +368,7 @@ func (sep SEP) ConvertToGeneric() Generic {
 	gen.Same_pp_address = ""
 	gen.Sp_addresses[0] = ""
 	gen.Sp_addresses[1] = ""
+	gen.Filename = ""
 
 	return gen
 
@@ -389,7 +397,7 @@ func ConvertFromGeneric(peer Generic) interface{} {
 	case 5:
 		return CreateMiddlePeer(peer.Hash_two, peer.File_part_hash, peer.Mp_address, peer.Sp_addresses)
 	case 6:
-		return CreateStoragePeer(peer.Hash_two, peer.File_part_hash)
+		return CreateStoragePeer(peer.Hash_two, peer.File_part_hash, peer.Filename)
 	case 7:
 		return CreateSearchPeer(peer.Title)
 	}
@@ -398,13 +406,46 @@ func ConvertFromGeneric(peer Generic) interface{} {
 
 }
 
-func CheckAllStored(hash_two string) interface{} {
+func CheckStorageStored(hash_two string, file_part_hash string) *SP {
 
 	for _, data := range local_file_information {
 
-		if data.Hash_two == hash_two {
+		if data.hash_two == hash_two && data.file_part_hash == file_part_hash {
 
-			return ConvertFromGeneric(data)
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
+func CheckProxyStored(hash_two string, file_part_hash string) *PP {
+
+	for _, data := range local_proxy_information {
+
+		if data.hash_two == hash_two && data.file_part_hash == file_part_hash {
+
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
+func CheckMiddleStored(hash_two string, file_part_hash string) *MP {
+
+	for _, data := range local_middle_information {
+
+		if data.hash_two == hash_two && data.file_part_hash == file_part_hash {
+
+			temp := &data
+			return temp
 
 		}
 
@@ -476,6 +517,8 @@ func CreateProxyPeer(hash_two string, file_part_hash string, same_pp_address str
 	pp.next_pp_addresses = next_pp_addresses
 	pp.mp_addresses = mp_addresses
 
+	local_proxy_information = append(local_proxy_information, pp)
+
 	return pp
 
 }
@@ -489,16 +532,21 @@ func CreateMiddlePeer(hash_two string, file_part_hash string, mp_address string,
 	mp.mp_address = mp_address
 	mp.sp_addresses = sp_addresses
 
+	local_middle_information = append(local_middle_information, mp)
+
 	return mp
 
 }
 
-func CreateStoragePeer(hash_two string, file_part_hash string) SP {
+func CreateStoragePeer(hash_two string, file_part_hash string, filename string) SP {
 
 	var sp SP
 
 	sp.hash_two = hash_two
 	sp.file_part_hash = file_part_hash
+	sp.filename = filename
+
+	local_file_information = append(local_file_information, sp)
 
 	return sp
 

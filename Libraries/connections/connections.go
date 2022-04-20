@@ -5,25 +5,15 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 )
 
-var allClients map[*Client]int
 var allPeers map[*Peer]int
-
-type Client struct {
-	// incoming chan string
-	id            int
-	outgoing      chan string
-	outgoing_this string
-	reader        *bufio.Reader
-	writer        *bufio.Writer
-	conn          net.Conn
-	connection    *Client
-}
 
 type Peer struct {
 	// incoming chan string
@@ -34,46 +24,6 @@ type Peer struct {
 	conn       net.Conn
 	connection *Peer
 	send_data  string
-}
-
-func (client *Client) ClientRead() {
-	for {
-		line, err := client.reader.ReadString('\n')
-		if err == nil {
-			if client.connection != nil {
-				split := strings.Split(line, "*_+_*")
-				if split[0] == "send*_=_*struct" {
-					decoder := gob.NewDecoder(client.conn)
-					gen := &PeerTypes.Generic{}
-					decoder.Decode(gen)
-					fmt.Println(gen.ToString())
-				} else {
-					client.connection.outgoing <- line
-				}
-			}
-		} else {
-			fmt.Println(err)
-			break
-		}
-
-	}
-
-	client.conn.Close()
-	delete(allClients, client)
-	if client.connection != nil {
-		client.connection.connection = nil
-	}
-	client = nil
-}
-
-func (client *Client) ClientWrite() {
-	for data := range client.outgoing {
-		client.writer.WriteString(data)
-		data = strings.ReplaceAll(data, "\n", "")
-		fmt.Print(data)
-		fmt.Print("\n")
-		client.writer.Flush()
-	}
 }
 
 func (peer *Peer) PeerWrite() {
@@ -90,12 +40,96 @@ func (peer *Peer) PeerRead() {
 	for {
 		line, err := peer.reader.ReadString('\n')
 		if err == nil {
-			if peer.connection != nil {
-				peer.connection.incoming = line
+			line = strings.Replace(line, "\n", "", -1)
+			if strings.Contains(line, "*_+_*") {
+				split := strings.Split(line, "*_+_*")
+				if split[0] == "send*_=_*struct" {
+
+					decoder := gob.NewDecoder(peer.conn)
+					gen := &PeerTypes.Generic{}
+					decoder.Decode(gen)
+					fmt.Println(gen.ToString())
+
+				} else if split[0] == "send*_=_*file" {
+
+					var err error
+
+					filename := split[1]
+					filesize, err := strconv.ParseInt(split[2], 10, 64)
+
+					const BUFFER_SIZE = 8192
+					var currentbyte int64 = 0
+
+					filebuffer := make([]byte, BUFFER_SIZE)
+
+					file, err := os.Create(strings.TrimSpace(filename + ".copy.jpg"))
+					if err != nil {
+
+					} else {
+						for err == nil || err != io.EOF {
+
+							peer.conn.Read(filebuffer)
+
+							_, err = file.WriteAt(filebuffer, currentbyte)
+							fmt.Printf("\rReceived: " + strconv.Itoa(int(currentbyte)))
+							currentbyte += BUFFER_SIZE
+
+							if currentbyte >= filesize {
+								break
+							}
+
+						}
+						file.Close()
+						err := os.Truncate(filename+".copy.jpg", filesize)
+						if err != nil {
+							log.Fatal(err)
+						}
+						peer.sendMsg("File Received!")
+					}
+
+				} else if split[0] == "req*_=_*file" && strings.Contains(line, "*_+_*stream*_+_*") {
+
+					if PeerTypes.CheckStorageStored(split[2], split[3]) != nil {
+
+						sp := PeerTypes.CheckStorageStored(split[2], split[3])
+						peer.streamFileData(sp.GetData("filename"), nil)
+						temp_line, _ := peer.reader.ReadString('\n')
+						temp_line = strings.Replace(temp_line, "\n", "", -1)
+						fmt.Println(temp_line)
+						break
+
+					} else if PeerTypes.CheckMiddleStored(split[2], split[3]) != nil {
+
+						mp := PeerTypes.CheckMiddleStored(split[2], split[3])
+						temp_peer := CreateSendThread(mp.GetData("sp1"))
+						temp_peer.sendMsg(line)
+						temp_line, _ := temp_peer.reader.ReadString('\n')
+						temp_line = strings.Replace(temp_line, "\n", "", -1)
+						peer.streamFileData(temp_line, temp_peer)
+						temp_line, _ = peer.reader.ReadString('\n')
+						temp_line = strings.Replace(temp_line, "\n", "", -1)
+						fmt.Println(temp_line)
+						break
+
+					} else if PeerTypes.CheckProxyStored(split[2], split[3]) != nil {
+
+						pp := PeerTypes.CheckProxyStored(split[2], split[3])
+						temp_peer := CreateSendThread(pp.GetData("mp1"))
+						temp_peer.sendMsg(line)
+						temp_line, _ := temp_peer.reader.ReadString('\n')
+						temp_line = strings.Replace(temp_line, "\n", "", -1)
+						peer.streamFileData(temp_line, temp_peer)
+						temp_line, _ = peer.reader.ReadString('\n')
+						temp_line = strings.Replace(temp_line, "\n", "", -1)
+						fmt.Println(temp_line)
+						break
+
+					}
+
+				}
+			} else {
+				fmt.Println(line)
 			}
-			line = strings.ReplaceAll(line, "\n", "")
-			fmt.Print(line)
-			fmt.Print("\n")
 		} else {
 			fmt.Println(err)
 			break
@@ -109,11 +143,7 @@ func (peer *Peer) PeerRead() {
 		peer.connection.connection = nil
 	}
 	peer = nil
-}
-
-func (client *Client) ClientListen() {
-	go client.ClientRead()
-	go client.ClientWrite()
+	fmt.Println("Connection Closed!")
 }
 
 func (peer *Peer) PeerListen() {
@@ -121,25 +151,7 @@ func (peer *Peer) PeerListen() {
 	go peer.PeerWrite()
 }
 
-func NewClient(connection net.Conn) *Client {
-	writer := bufio.NewWriter(connection)
-	reader := bufio.NewReader(connection)
-
-	client := &Client{
-		// incoming: make(chan string),
-		id:            len(allClients) + 1,
-		outgoing:      make(chan string),
-		outgoing_this: "",
-		conn:          connection,
-		reader:        reader,
-		writer:        writer,
-	}
-	client.ClientListen()
-
-	return client
-}
-
-func NewPeer(connection net.Conn) *Peer {
+func NewPeer(connection net.Conn, run_threads bool) *Peer {
 	writer := bufio.NewWriter(connection)
 	reader := bufio.NewReader(connection)
 
@@ -152,7 +164,9 @@ func NewPeer(connection net.Conn) *Peer {
 		writer:    writer,
 		send_data: "",
 	}
-	peer.PeerListen()
+	if run_threads {
+		peer.PeerListen()
+	}
 
 	return peer
 }
@@ -165,31 +179,44 @@ func Connections() {
 
 func SendThread(address string, port string) {
 	//establish connection
-	connection, err := net.Dial("tcp", address+":"+port)
-	if err != nil {
-		panic(err)
-	}
 
-	peer := NewPeer(connection)
+	reader := bufio.NewReader(os.Stdin)
 
 	for {
 
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Text to send: ")
+		connection, err := net.Dial("tcp", address+":"+port)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Print("Text to input: ")
 		text, _ := reader.ReadString('\n')
-		fmt.Println(text)
+		text = strings.Replace(text, "\n", "", -1)
 
-		help := PeerTypes.CreateSearchPeer("hello")
-		newone := help.ConvertToGeneric()
+		peer := NewPeer(connection, false)
 
-		peer.sendStruct(newone)
+		peer.reqFileData("hello", "hello1")
+
+		connection.Close()
 
 	}
 
 }
 
+func CreateSendThread(address string) *Peer {
+	//establish connection
+	connection, err := net.Dial("tcp", address)
+	if err != nil {
+		panic(err)
+	}
+
+	return NewPeer(connection, false)
+
+}
+
 func RecvThread(port string) {
-	allClients = make(map[*Client]int)
+
+	allPeers = make(map[*Peer]int)
 	listener, err1 := net.Listen("tcp", port)
 	if err1 != nil {
 		fmt.Println(err1.Error())
@@ -200,57 +227,202 @@ func RecvThread(port string) {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		client := NewClient(conn)
-		for clientList := range allClients {
-			if clientList.connection == nil {
-				client.connection = clientList
-				clientList.connection = client
+		peer := NewPeer(conn, true)
+		for peerList := range allPeers {
+			if peerList.connection == nil {
+				peer.connection = peerList
+				peerList.connection = peer
 				fmt.Println("Connected")
 			}
 		}
-		allClients[client] = 1
-		fmt.Println(len(allClients))
-		client.sendMsg(client.id, "Welcome to the party!")
-		client.sendMsgAll("Welcome peer " + strconv.Itoa(client.id) + " to the cluser!")
+		allPeers[peer] = 1
+		fmt.Println(len(allPeers))
+
+	}
+
+}
+
+func (peer *Peer) sendMsgAllNoOriginal(id int, message string) {
+	for i, _ := range allPeers {
+		if i.id != id {
+			i.writer.WriteString(message + "\n")
+			i.writer.Flush()
+		}
 	}
 }
 
-func (client *Client) sendMsgAll(message string) {
-	if client.connection != nil {
-		client.connection.outgoing <- message + "\n"
-	}
-}
-
-func (client *Client) sendMsg(id int, message string) {
-	for i, _ := range allClients {
-		if i.id == id {
-			client.writer.WriteString(message + "\n")
-			client.writer.Flush()
+func (peer *Peer) sendMsgAll(message string) {
+	for i, _ := range allPeers {
+		if i.conn != nil {
+			i.writer.WriteString(message + "\n")
+			i.writer.Flush()
 		}
 	}
 }
 
 func (peer *Peer) sendMsg(message string) {
-
-	peer.send_data = message + "\n"
-
-}
-
-func (client *Client) sendStruct(id int, info PeerTypes.Generic) {
-	if client.connection != nil {
-		client.connection.outgoing <- "send*_=_*struct*_+_*\n"
-		encoder := gob.NewEncoder(client.connection.conn)
-		encoder.Encode(info)
-	}
+	peer.writer.WriteString(message + "\n")
+	peer.writer.Flush()
 }
 
 func (peer *Peer) sendStruct(info PeerTypes.Generic) {
-	peer.send_data = "send*_=_*struct*_+_*\n"
+	peer.sendMsg("send*_=_*struct*_+_*")
 	encoder := gob.NewEncoder(peer.conn)
 	encoder.Encode(info)
 }
 
-func (peer *Peer) sendFileData() {
+func (peer *Peer) sendFileData(filename string) {
+
+	const BUFFER_SIZE = 8192
+	var currentbyte int64 = 0
+	filebuffer := make([]byte, BUFFER_SIZE)
+	var err error
+
+	size, err := os.Stat(strings.TrimSpace(filename))
+	peer.sendMsg("send*_=_*file*_+_*" + filename + "*_+_*" + strconv.Itoa(int(size.Size())) + "*_+_*")
+
+	file, err := os.Open(strings.TrimSpace(filename))
+	if err != nil {
+		peer.conn.Write([]byte("-1"))
+		file.Close()
+		return
+	}
+
+	for err == nil || err != io.EOF {
+
+		n, err := file.ReadAt(filebuffer, currentbyte)
+		peer.conn.Write(filebuffer[:n])
+
+		if err != nil || err == io.EOF {
+			break
+		}
+
+		currentbyte += BUFFER_SIZE
+		fmt.Printf("\rWritten: " + strconv.Itoa(int(currentbyte)))
+
+	}
+
+	file.Close()
+
+	fmt.Println()
+
+}
+
+func (peer *Peer) reqFileData(hash_two string, file_part_hash string) {
+	peer.sendMsg("req*_=_*file*_+_*stream*_+_*" + hash_two + "*_+_*" + file_part_hash + "*_+_*")
+	var err error
+
+	info, err := peer.reader.ReadString('\n')
+
+	info = strings.Replace(info, "\n", "", -1)
+	split := strings.Split(info, "*_+_*")
+
+	filesize, err := strconv.ParseInt(split[3], 10, 64)
+	filename := split[2]
+
+	const BUFFER_SIZE = 8192
+	var currentbyte int64 = 0
+
+	filebuffer := make([]byte, BUFFER_SIZE)
+
+	file, err := os.Create(strings.TrimSpace(filename + ".copy.jpg"))
+	if err != nil {
+
+	} else {
+		for err == nil || err != io.EOF {
+
+			peer.conn.Read(filebuffer)
+
+			_, err = file.WriteAt(filebuffer, currentbyte)
+			fmt.Printf("\rReceived: " + strconv.Itoa(int(currentbyte)))
+			currentbyte += BUFFER_SIZE
+
+			if currentbyte >= filesize {
+				break
+			}
+
+		}
+		file.Close()
+		err := os.Truncate(filename+".copy.jpg", filesize)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	fmt.Println()
+	peer.sendMsg("File Received!")
+}
+
+func (peer *Peer) streamFileData(filename string, temp_peer *Peer) {
+
+	if temp_peer == nil {
+
+		const BUFFER_SIZE = 8192
+		var currentbyte int64 = 0
+		filebuffer := make([]byte, BUFFER_SIZE)
+		var err error
+
+		size, err := os.Stat(strings.TrimSpace(filename))
+		peer.sendMsg("send*_=_*file*_+_*stream*_+_*" + filename + "*_+_*" + strconv.Itoa(int(size.Size())) + "*_+_*")
+
+		file, err := os.Open(strings.TrimSpace(filename))
+		if err != nil {
+			peer.conn.Write([]byte("-1"))
+			file.Close()
+			return
+		}
+
+		for err == nil || err != io.EOF {
+
+			n, err := file.ReadAt(filebuffer, currentbyte)
+			peer.conn.Write(filebuffer[:n])
+
+			if err != nil || err == io.EOF {
+				break
+			}
+
+			currentbyte += BUFFER_SIZE
+			fmt.Printf("\rWritten: " + strconv.Itoa(int(currentbyte)))
+
+		}
+
+		file.Close()
+
+		fmt.Println()
+
+	} else {
+
+		peer.sendMsg(filename)
+
+		var err error
+
+		split := strings.Split(filename, "*_+_*")
+		filesize, err := strconv.ParseInt(split[3], 10, 64)
+
+		const BUFFER_SIZE = 8192
+		var currentbyte int64 = 0
+
+		filebuffer := make([]byte, BUFFER_SIZE)
+
+		for err == nil || err != io.EOF {
+
+			temp_peer.conn.Read(filebuffer)
+
+			peer.conn.Write(filebuffer)
+			fmt.Printf("\rReceived: " + strconv.Itoa(int(currentbyte)))
+			currentbyte += BUFFER_SIZE
+
+			if currentbyte >= filesize {
+				break
+			}
+
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		temp_peer.sendMsg("File Received!")
+		fmt.Println()
+
+	}
 
 }
 

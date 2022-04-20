@@ -21,6 +21,7 @@ func main() {
 	addPtr := flag.String("addr", "localhost", "Address")
 	portPtr := flag.String("port", "2007", "port")
 	serverportPtr := flag.String("serverport", "2007", "server port")
+	idPtr := flag.Int("id", 0, "Peer ID")
 
 	flag.Parse()
 
@@ -30,6 +31,21 @@ func main() {
 	Download.Download()
 	Upload.Upload()
 	Connections.Connections()
+
+	var nothing [2]string
+	var proxy [2]string
+	var middle [2]string
+
+	proxy[0] = "localhost:2008"
+	middle[0] = "localhost:2007"
+
+	if *idPtr == 1 {
+		PeerTypes.CreateProxyPeer("hello", "hello1", "", nothing, proxy)
+	} else if *idPtr == 2 {
+		PeerTypes.CreateMiddlePeer("hello", "hello1", "", middle)
+	} else if *idPtr == 3 {
+		PeerTypes.CreateStoragePeer("hello", "hello1", "photo.JPG")
+	}
 
 	if *firstPtr {
 		Connections.RecvThread(":" + *serverportPtr)
