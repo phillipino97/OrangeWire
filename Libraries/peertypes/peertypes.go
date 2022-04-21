@@ -3,11 +3,13 @@ package peertypes
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 var local_file_information []SP
 var local_proxy_information []PP
 var local_middle_information []MP
+var local_filename_information []FNP
 
 type Peers interface {
 	GetData() string
@@ -454,6 +456,22 @@ func CheckMiddleStored(hash_two string, file_part_hash string) *MP {
 	return nil
 }
 
+func CheckFilenameStored(filename string) *FNP {
+
+	for _, data := range local_filename_information {
+
+		if strings.Compare(data.title, filename) == -1 {
+
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
 func CreateFileNamePeer(title string, hash_one string, hash_two string, dp_addresses [2]string, fnp_addresses [2]string) FNP {
 
 	var fnp FNP
@@ -463,6 +481,8 @@ func CreateFileNamePeer(title string, hash_one string, hash_two string, dp_addre
 	fnp.hash_two = hash_two
 	fnp.dp_addresses = dp_addresses
 	fnp.fnp_addresses = fnp_addresses
+
+	local_filename_information = append(local_filename_information, fnp)
 
 	return fnp
 

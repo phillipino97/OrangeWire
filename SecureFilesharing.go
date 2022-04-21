@@ -44,7 +44,8 @@ func main() {
 	} else if *idPtr == 2 {
 		PeerTypes.CreateMiddlePeer("hello", "hello1", "", middle)
 	} else if *idPtr == 3 {
-		PeerTypes.CreateStoragePeer("hello", "hello1", "photo.JPG")
+		PeerTypes.CreateStoragePeer("hello", "hello1", "Avatar.mp4")
+		PeerTypes.CreateFileNamePeer("Hi.jpg.copy.id", "hello", "hello1", nothing, nothing)
 	}
 
 	if *firstPtr {

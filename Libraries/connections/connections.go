@@ -9,11 +9,17 @@ import (
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var allPeers map[*Peer]int
+var growMsgs map[string]string
+
+var OPEN_PORT string
+var TIME string
 
 type Peer struct {
 	// incoming chan string
@@ -126,6 +132,44 @@ func (peer *Peer) PeerRead() {
 
 					}
 
+				} else if split[0] == "grow" {
+
+					if strings.Split(split[1], "*_=_*")[0] == "search" {
+
+						if strings.Split(strings.Split(split[2], "*_=_*")[1], ":")[0] == "" {
+
+							var match = regexp.MustCompile(":\\d+$")
+							addr := match.ReplaceAllString(peer.conn.RemoteAddr().String(), "")
+							line = strings.Replace(line, "addr*_=_*", "addr*_=_*"+addr, 1)
+
+							if PeerTypes.CheckFilenameStored(strings.Split(split[1], "*_=_*")[1]) != nil {
+
+							} else {
+
+								peer.sendMsgAllNoOriginal(peer.id, line)
+								growMsgs[peer.conn.RemoteAddr().(*net.TCPAddr).String()] = line
+								fmt.Println("Search: " + strings.Split(split[1], "*_=_*")[1])
+
+							}
+
+						} else if growMsgs[peer.conn.RemoteAddr().String()] != line {
+
+							if PeerTypes.CheckFilenameStored(strings.Split(split[1], "*_=_*")[1]) != nil {
+
+							} else {
+
+								peer.sendMsgAllNoOriginal(peer.id, line)
+								growMsgs[peer.conn.RemoteAddr().(*net.TCPAddr).String()] = line
+								fmt.Println("Search: " + strings.Split(split[1], "*_=_*")[1])
+
+							}
+
+							//return "grow*_+_*search*_=_*" + search.GetData("title") + "*_+_*addr*_=_*" + OPEN_PORT + "*_+_*time*_=_*" + time.Now().String() + "*_+_*"
+
+						}
+
+					}
+
 				}
 			} else {
 				fmt.Println(line)
@@ -174,6 +218,9 @@ func NewPeer(connection net.Conn, run_threads bool) *Peer {
 func Connections() {
 
 	fmt.Println("Opening connections...")
+	growMsgs = make(map[string]string)
+	allPeers = make(map[*Peer]int)
+	TIME = time.Now().String()
 
 }
 
@@ -181,10 +228,20 @@ func SendThread(address string, port string) {
 	//establish connection
 
 	reader := bufio.NewReader(os.Stdin)
+	connection, err := net.Dial("tcp", address+":"+port)
+	peer := NewPeer(connection, true)
+	for peerList := range allPeers {
+		if peerList.connection == nil {
+			peer.connection = peerList
+			peerList.connection = peer
+			fmt.Println("Connected")
+		}
+	}
+	allPeers[peer] = 1
+	fmt.Println(len(allPeers))
 
 	for {
 
-		connection, err := net.Dial("tcp", address+":"+port)
 		if err != nil {
 			panic(err)
 		}
@@ -193,11 +250,9 @@ func SendThread(address string, port string) {
 		text, _ := reader.ReadString('\n')
 		text = strings.Replace(text, "\n", "", -1)
 
-		peer := NewPeer(connection, false)
-
-		peer.reqFileData("hello", "hello1")
-
-		connection.Close()
+		sep := PeerTypes.CreateSearchPeer(text)
+		send := GenerateSendMsg(0, sep.ConvertToGeneric())
+		peer.sendMsg(send)
 
 	}
 
@@ -216,7 +271,7 @@ func CreateSendThread(address string) *Peer {
 
 func RecvThread(port string) {
 
-	allPeers = make(map[*Peer]int)
+	OPEN_PORT = port
 	listener, err1 := net.Listen("tcp", port)
 	if err1 != nil {
 		fmt.Println(err1.Error())
@@ -325,7 +380,7 @@ func (peer *Peer) reqFileData(hash_two string, file_part_hash string) {
 
 	filebuffer := make([]byte, BUFFER_SIZE)
 
-	file, err := os.Create(strings.TrimSpace(filename + ".copy.jpg"))
+	file, err := os.Create(strings.TrimSpace(filename + ".copy.mp4"))
 	if err != nil {
 
 	} else {
@@ -343,10 +398,10 @@ func (peer *Peer) reqFileData(hash_two string, file_part_hash string) {
 
 		}
 		file.Close()
-		err := os.Truncate(filename+".copy.jpg", filesize)
+		/*err := os.Truncate(filename+".copy.mp4", filesize)
 		if err != nil {
 			log.Fatal(err)
-		}
+		}*/
 	}
 	fmt.Println()
 	peer.sendMsg("File Received!")
@@ -426,7 +481,7 @@ func (peer *Peer) streamFileData(filename string, temp_peer *Peer) {
 
 }
 
-func GenerateSendMsg(address string, send_hash string, function int, information PeerTypes.Generic) string {
+func GenerateSendMsg(function int, information PeerTypes.Generic) string {
 
 	peer := PeerTypes.ConvertFromGeneric(information)
 
@@ -435,7 +490,11 @@ func GenerateSendMsg(address string, send_hash string, function int, information
 
 		if search, ok := peer.(PeerTypes.SEP); ok {
 
-			return "search*_=_*" + search.GetData("title") + "*_+_*addr*_=_*" + address + "*_+_*hash*_=_*" + send_hash + "*_+_*"
+			temp := search.GetData("title")
+
+			var return_string = ("grow*_+_*search*_=_*" + temp + "*_+_*addr*_=_*" + OPEN_PORT + "*_+_*time*_=_*" + TIME + "*_+_*")
+
+			return return_string
 
 		}
 
