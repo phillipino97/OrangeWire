@@ -3,13 +3,15 @@ package peertypes
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 var local_file_information []SP
 var local_proxy_information []PP
 var local_middle_information []MP
 var local_filename_information []FNP
+var local_directory_information []DP
+var local_confirmation_information []COP
+var local_key_information []KP
 
 type Peers interface {
 	GetData() string
@@ -93,7 +95,7 @@ type SEP struct {
 }
 
 func (gen Generic) ToString() string {
-	return strconv.Itoa(gen.Peer_type) + "\n" + gen.Title
+	return strconv.Itoa(gen.Peer_type)
 }
 
 func (fnp FNP) GetData(data_type string) string {
@@ -146,7 +148,7 @@ func (dp DP) GetData(data_type string) string {
 	} else if data_type == "dp2" {
 		return dp.dp_addresses[1]
 	} else if data_type == "pp_one1" {
-		return dp.pp_one_addresses[1]
+		return dp.pp_one_addresses[0]
 	} else if data_type == "pp_one2" {
 		return dp.pp_one_addresses[1]
 	}
@@ -347,30 +349,6 @@ func (sep SEP) ConvertToGeneric() Generic {
 
 	gen.Peer_type = 7
 	gen.Title = sep.title
-	gen.Cop_addresses[0] = ""
-	gen.Cop_addresses[1] = ""
-	gen.Dp_addresses[0] = ""
-	gen.Dp_addresses[1] = ""
-	gen.File_part_hash = ""
-	gen.Fnp_addresses[0] = ""
-	gen.Fnp_addresses[1] = ""
-	gen.Hash_one = ""
-	gen.Hash_two = ""
-	gen.Key_one = ""
-	gen.Key_two = ""
-	gen.Kp_addresses[0] = ""
-	gen.Kp_addresses[1] = ""
-	gen.Mp_address = ""
-	gen.Mp_addresses[0] = ""
-	gen.Mp_addresses[1] = ""
-	gen.Next_pp_addresses[0] = ""
-	gen.Next_pp_addresses[1] = ""
-	gen.Pp_one_addresses[0] = ""
-	gen.Pp_one_addresses[1] = ""
-	gen.Same_pp_address = ""
-	gen.Sp_addresses[0] = ""
-	gen.Sp_addresses[1] = ""
-	gen.Filename = ""
 
 	return gen
 
@@ -402,6 +380,7 @@ func ConvertFromGeneric(peer Generic) interface{} {
 		return CreateStoragePeer(peer.Hash_two, peer.File_part_hash, peer.Filename)
 	case 7:
 		return CreateSearchPeer(peer.Title)
+
 	}
 
 	return nil
@@ -424,11 +403,11 @@ func CheckStorageStored(hash_two string, file_part_hash string) *SP {
 	return nil
 }
 
-func CheckProxyStored(hash_two string, file_part_hash string) *PP {
+func CheckProxyStored(hash_two string) *PP {
 
 	for _, data := range local_proxy_information {
 
-		if data.hash_two == hash_two && data.file_part_hash == file_part_hash {
+		if data.hash_two == hash_two {
 
 			temp := &data
 			return temp
@@ -460,7 +439,7 @@ func CheckFilenameStored(filename string) *FNP {
 
 	for _, data := range local_filename_information {
 
-		if strings.Compare(data.title, filename) == -1 {
+		if data.title == filename {
 
 			temp := &data
 			return temp
@@ -470,6 +449,129 @@ func CheckFilenameStored(filename string) *FNP {
 	}
 
 	return nil
+}
+
+func CheckDirectoryStored(hash_two string) *DP {
+
+	for _, data := range local_directory_information {
+
+		if data.hash_two == hash_two {
+
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
+func CheckKeyStored(hash_two string) *KP {
+
+	for _, data := range local_key_information {
+
+		if data.hash_two == hash_two {
+
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
+func CheckConfirmationStored(hash_one string, hash_two string) *COP {
+
+	for _, data := range local_confirmation_information {
+
+		if data.hash_one == hash_one && data.hash_two == hash_two {
+
+			temp := &data
+			return temp
+
+		}
+
+	}
+
+	return nil
+}
+
+func CheckAll(hash_two string) bool {
+
+	for _, data := range local_filename_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_directory_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_confirmation_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_key_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_proxy_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_middle_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	for _, data := range local_file_information {
+
+		if data.hash_two == hash_two {
+
+			return true
+
+		}
+
+	}
+
+	return false
 }
 
 func CreateFileNamePeer(title string, hash_one string, hash_two string, dp_addresses [2]string, fnp_addresses [2]string) FNP {
@@ -497,6 +599,8 @@ func CreateDirectoryPeer(hash_two string, cop_addresses [2]string, pp_one_addres
 	dp.pp_one_addresses = pp_one_addresses
 	dp.dp_addresses = dp_addresses
 
+	local_directory_information = append(local_directory_information, dp)
+
 	return dp
 
 }
@@ -510,6 +614,8 @@ func CreateConfirmationPeer(hash_one string, hash_two string, cop_addresses [2]s
 	cop.cop_addresses = cop_addresses
 	cop.kp_addresses = kp_addresses
 
+	local_confirmation_information = append(local_confirmation_information, cop)
+
 	return cop
 
 }
@@ -522,6 +628,8 @@ func CreateKeyPeer(hash_two string, key_one string, key_two string, kp_addresses
 	kp.key_one = key_one
 	kp.key_two = key_two
 	kp.kp_addresses = kp_addresses
+
+	local_key_information = append(local_key_information, kp)
 
 	return kp
 
@@ -579,91 +687,5 @@ func CreateSearchPeer(title string) SEP {
 	sep.title = title
 
 	return sep
-
-}
-
-func CreateUploadPeer() {
-
-}
-
-func CreateDownloadPeer() {
-
-}
-
-func CheckFileNamePeer(title string, fnp_test FNP) bool {
-
-	if title == fnp_test.title {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckDirectoryPeer(hash_two string, dp_test DP) bool {
-
-	if hash_two == dp_test.hash_two {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckConfirmationPeer(hash_one string, hash_two string, cop_test COP) bool {
-
-	if hash_one == cop_test.hash_one && hash_two == cop_test.hash_two {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckKeyPeer(hash_two string, kp_test KP) bool {
-
-	if hash_two == kp_test.hash_two {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckProxyPeer(hash_two string, pp_test PP) bool {
-
-	if hash_two == pp_test.hash_two {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckMiddlePeer(hash_two string, file_part_hash string, mp_test MP) bool {
-
-	if hash_two == mp_test.hash_two && file_part_hash == mp_test.file_part_hash {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckStoragePeer(hash_two string, file_part_hash string, sp_test SP) bool {
-
-	if hash_two == sp_test.hash_two && file_part_hash == sp_test.file_part_hash {
-		return true
-	}
-
-	return false
-
-}
-
-func CheckUploadPeer() {
-
-}
-
-func CheckDownloadPeer() {
 
 }
