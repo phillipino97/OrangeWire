@@ -13,3 +13,10 @@ The file is finished uploading when the console ">" pops up once again prompting
 Searching a file simply requires the user to type the word "search" and the program will prompt for file name and return all available files that match
 that name. The user simply selects which file they want and the program handles the downloading automatically.
 The file is finished downloading when the console ">" pops up once again prompting for user input.
+
+The network architecure for this program is as follows.
+Searching for a file:
+![Untitled Diagram](https://user-images.githubusercontent.com/38273962/165395370-160c7ebe-8130-4631-9aa7-47ee7bf2b870.jpg)
+Downloading a file:
+![Download](https://user-images.githubusercontent.com/38273962/165395427-49283ff0-794e-4792-9bf3-ebbb125a65ab.jpg)
+Uploading a file:
