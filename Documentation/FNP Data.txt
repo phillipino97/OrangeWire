@@ -1,6 +1,0 @@
-[File Name]
-[Hash 1]
-[Hash 2]
-[IP Address for Directory Peer]
-[IP Address for Second Directory Peer]
-[IP Address' for all other known FNP's]
