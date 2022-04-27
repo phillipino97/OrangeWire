@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	Connections "P2P-Secure-Filesharing/Libraries/connections"
-	Upload "P2P-Secure-Filesharing/Libraries/upload"
+	Connections "OrangeWire/Libraries/connections"
+	Upload "OrangeWire/Libraries/upload"
 )
 
 func main() {
