@@ -1,7 +1,7 @@
 package upload
 
 import (
-	Encryption "P2P-Secure-Filesharing/Libraries/encryption"
+	Encryption "OrangeWire/Libraries/encryption"
 	"crypto/aes"
 	"io"
 	"log"

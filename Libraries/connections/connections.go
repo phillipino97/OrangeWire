@@ -1,9 +1,9 @@
 package connections
 
 import (
-	Download "P2P-Secure-Filesharing/Libraries/download"
-	PeerTypes "P2P-Secure-Filesharing/Libraries/peertypes"
-	Upload "P2P-Secure-Filesharing/Libraries/upload"
+	Download "OrangeWire/Libraries/download"
+	PeerTypes "OrangeWire/Libraries/peertypes"
+	Upload "OrangeWire/Libraries/upload"
 	"bufio"
 	"encoding/gob"
 	"fmt"
